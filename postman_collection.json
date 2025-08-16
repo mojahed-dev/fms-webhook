@@ -1,0 +1,124 @@
+{
+  "info": {
+    "name": "Tawasul WhatsApp Webhook",
+    "_postman_id": "b3b2aafc-1234-5678-9012-abcdef123456",
+    "description": "Complete collection to test the Laravel WhatsApp webhook with Infobip",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}{{healthz_path}}", "host": ["{{base_url}}"], "path": ["{{healthz_path}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Overspeed Alert",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"vehicle_id\": \"{{vehicle_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"type\": \"Overspeed\",\n  \"occurred_at\": \"2025-08-14T07:50:12Z\",\n  \"phone\": \"{{test_phone}}\",\n  \"location\": { \"lat\": 24.7136, \"lng\": 46.6753 }\n}"
+        },
+        "url": { "raw": "{{base_url}}{{alerts_path}}", "host": ["{{base_url}}"], "path": ["{{alerts_path}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "SOS Alert",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"vehicle_id\": \"1221 XYZ\",\n  \"customer_id\": \"CUST-456\",\n  \"type\": \"SOS\",\n  \"occurred_at\": \"2025-08-14T10:05:00Z\",\n  \"phone\": \"{{test_phone}}\",\n  \"location\": { \"lat\": 24.7200, \"lng\": 46.6800 }\n}"
+        },
+        "url": { "raw": "{{base_url}}{{alerts_path}}", "host": ["{{base_url}}"], "path": ["{{alerts_path}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Geofence Out Alert",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"vehicle_id\": \"8844 ABC\",\n  \"customer_id\": \"CUST-789\",\n  \"type\": \"Geofence Out\",\n  \"occurred_at\": \"2025-08-14T12:20:00Z\",\n  \"phone\": \"{{test_phone}}\",\n  \"location\": { \"lat\": 24.7320, \"lng\": 46.7000 }\n}"
+        },
+        "url": { "raw": "{{base_url}}{{alerts_path}}", "host": ["{{base_url}}"], "path": ["{{alerts_path}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Fuel (Fill/Theft) Alert",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"vehicle_id\": \"7720 FUEL\",\n  \"customer_id\": \"CUST-333\",\n  \"type\": \"Fuel (Fill/Theft)\",\n  \"occurred_at\": \"2025-08-14T13:10:45Z\",\n  \"phone\": \"{{test_phone}}\",\n  \"location\": { \"lat\": 24.7385, \"lng\": 46.6901 },\n  \"metrics\": { \"fuel_change_l\": -15 }\n}"
+        },
+        "url": { "raw": "{{base_url}}{{alerts_path}}", "host": ["{{base_url}}"], "path": ["{{alerts_path}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Ignition ON Alert",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"vehicle_id\": \"IG-1001\",\n  \"customer_id\": \"CUST-190\",\n  \"type\": \"Ignition ON/OFF\",\n  \"occurred_at\": \"2025-08-14T08:00:00Z\",\n  \"phone\": \"{{test_phone}}\",\n  \"metrics\": { \"ignition\": \"on\" }\n}"
+        },
+        "url": { "raw": "{{base_url}}{{alerts_path}}", "host": ["{{base_url}}"], "path": ["{{alerts_path}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Ignition OFF Alert",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"vehicle_id\": \"IG-1001\",\n  \"customer_id\": \"CUST-190\",\n  \"type\": \"Ignition ON/OFF\",\n  \"occurred_at\": \"2025-08-14T18:10:00Z\",\n  \"phone\": \"{{test_phone}}\",\n  \"metrics\": { \"ignition\": \"off\" }\n}"
+        },
+        "url": { "raw": "{{base_url}}{{alerts_path}}", "host": ["{{base_url}}"], "path": ["{{alerts_path}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Negative: Missing Phone (422)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"vehicle_id\": \"NO-PHONE\",\n  \"customer_id\": \"CUST-000\",\n  \"type\": \"Overspeed\",\n  \"occurred_at\": \"2025-08-14T09:00:00Z\"\n}"
+        },
+        "url": { "raw": "{{base_url}}{{alerts_path}}", "host": ["{{base_url}}"], "path": ["{{alerts_path}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "Duplicate Alert (Idempotency) — send again",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"vehicle_id\": \"{{vehicle_id}}\",\n  \"customer_id\": \"{{customer_id}}\",\n  \"type\": \"Overspeed\",\n  \"occurred_at\": \"2025-08-14T07:50:12Z\",\n  \"phone\": \"{{test_phone}}\",\n  \"location\": { \"lat\": 24.7136, \"lng\": 46.6753 }\n}"
+        },
+        "url": { "raw": "{{base_url}}{{alerts_path}}", "host": ["{{base_url}}"], "path": ["{{alerts_path}}"] }
+      },
+      "response": []
+    }
+  ],
+  "event": []
+}
