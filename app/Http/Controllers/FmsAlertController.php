@@ -13,6 +13,15 @@ class FmsAlertController extends Controller
 {
     public function handle(Request $req)
     {
+        // Log incoming FMS webhook payload
+        Log::channel('fms')->info('Incoming FMS Webhook', [
+            'headers' => request()->headers->all(),
+            'body'    => request()->all(),
+        ]);
+
+        // TEMPORARY: Simple test response to confirm endpoint works
+        return response()->json(['ok' => true, 'seen' => $req->all()], 202);
+
         // Optional IP allow-list (skip for local)
         if ($ips = env('ALLOWED_SOURCE_IPS')) {
             $allowed = array_map('trim', explode(',', $ips));
@@ -36,16 +45,33 @@ class FmsAlertController extends Controller
         $occurredAt = $payload['occurred_at']  ?? $payload['timestamp'] ?? now()->toISOString();
         $msisdn     = $payload['phone']        ?? null;
 
+        // Normalize alert type for better matching
+        $normalizedType = strtolower(str_replace([' ', '-'], '_', $type));
+
         $map = config('alerts');
-        if (!isset($map[$type])) {
-            Log::warning('No template mapped for alert type', ['type' => $type]);
+        $template = null;
+        
+        // Try original type first, then normalized type
+        if (isset($map[$type])) {
+            $template = $map[$type]['template'];
+        } elseif (isset($map[$normalizedType])) {
+            $template = $map[$normalizedType]['template'];
+        } else {
+            Log::warning('No template mapped for alert type', [
+                'original_type' => $type,
+                'normalized_type' => $normalizedType
+            ]);
             return response()->json(['skipped' => true], 200);
         }
-        $template = $map[$type]['template'];
 
         $idempotency = hash('sha256', "{$vehicleId}|{$type}|{$occurredAt}");
 
-        // Skip database operations for testing without proper DB setup
+        if (!$msisdn) {
+            Log::error('Missing phone (to_msisdn) in payload');
+            return response()->json(['error' => 'missing phone'], 422);
+        }
+
+        // Database operations with proper error handling
         try {
             $alert = Alert::firstOrCreate(
                 ['idempotency_key' => $idempotency],
@@ -58,13 +84,9 @@ class FmsAlertController extends Controller
                     'payload'     => $payload,
                 ]
             );
+            
             if (!$alert->wasRecentlyCreated) {
                 return response()->json(['duplicate' => true], 200);
-            }
-
-            if (!$msisdn) {
-                Log::error('Missing phone (to_msisdn) in payload');
-                return response()->json(['error' => 'missing phone'], 422);
             }
 
             $message = Message::create([
@@ -86,22 +108,20 @@ class FmsAlertController extends Controller
             SendWhatsappAlert::dispatch($message, $placeholders)->onQueue('default');
 
             return response()->json(['queued' => true, 'alert_id' => $alert->id], 202);
+            
         } catch (\Exception $e) {
-            // For testing without database - simulate successful processing
-            Log::info('Database not available, simulating webhook processing', [
+            Log::error('Database operation failed', [
+                'error' => $e->getMessage(),
                 'vehicle_id' => $vehicleId,
                 'alert_type' => $type,
                 'template' => $template,
-                'phone' => $msisdn
+                'trace' => $e->getTraceAsString()
             ]);
             
             return response()->json([
-                'simulated' => true,
-                'message' => 'Webhook received and would be processed',
-                'alert_type' => $type,
-                'template' => $template,
-                'vehicle_id' => $vehicleId
-            ], 202);
+                'error' => 'Database operation failed',
+                'message' => 'Unable to process webhook due to database error'
+            ], 500);
         }
     }
 

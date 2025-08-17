@@ -22,6 +22,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Log Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify the timezone that should be used for log timestamps.
+    | This allows you to have log timestamps in your local timezone instead of UTC.
+    |
+    */
+
+    'timezone' => env('LOG_TIMEZONE', 'UTC'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Deprecations Log Channel
     |--------------------------------------------------------------------------
     |
@@ -125,6 +137,12 @@ return [
 
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
+        ],
+
+        'fms' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/fms.log'),
+            'level' => 'debug',
         ],
 
     ],
