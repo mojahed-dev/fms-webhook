@@ -14,45 +14,57 @@ class InfobipClient
 
     public function sendTemplateMessage(string $to, string $template, array $placeholders, string $language = null)
     {
-        $language = $language ?? env('DEFAULT_LANGUAGE', 'ar');
-        $apiKey   = env('INFOBIP_API_KEY');
-        $base     = rtrim(env('INFOBIP_BASE_URL'), '/');
+        $from = env('WABA_SENDER');
+        $language = $language ?? env('DEFAULT_LANGUAGE', 'en');
 
-        // Convert associative array placeholders to indexed array for Infobip
-        $templatePlaceholders = is_array($placeholders) && !empty($placeholders) 
-            ? (array_keys($placeholders) !== range(0, count($placeholders) - 1) 
-                ? array_values($placeholders) 
-                : $placeholders)
-            : [];
+        // Validate required fields
+        if (is_null($from) || is_null($to) || empty($template)) {
+            Log::error('InfobipClient validation failed', [
+                'from' => $from,
+                'to' => $to,
+                'template' => $template,
+                'error' => 'Required fields must not be null: from, to, and template.'
+            ]);
+            throw new \InvalidArgumentException('Required fields must not be null: from, to, and template.');
+        }
 
+        // Correct payload structure for Infobip WhatsApp Template API
         $payload = [
-            'from'      => env('WABA_SENDER'),
-            'to'        => $to,
-            'messageId' => uniqid('msg_', true),
-            'content'   => [
-                'templateName' => $template,
-                'templateData' => [
-                    'body' => ['placeholders' => $templatePlaceholders]
-                ],
-                'language' => $language
+            'messages' => [
+                [
+                    'from' => $from,
+                    'to' => $to,
+                    'messageId' => uniqid('msg_', true),
+                    'content' => [
+                        'templateName' => $template,
+                        'templateData' => [
+                            'body' => [
+                                'placeholders' => array_values($placeholders)
+                            ]
+                        ],
+                        'language' => $language
+                    ]
+                ]
             ]
         ];
 
-        Log::channel('fms')->debug('Sending WhatsApp template message', [
-            'to' => $to,
-            'template' => $template,
-            'language' => $language,
-            'placeholders' => $templatePlaceholders,
-            'payload' => $payload
+        // Debug log before sending
+        Log::info('INFOBIP REQUEST DEBUG', [
+            'url' => env('INFOBIP_BASE_URL') . '/whatsapp/1/message/template',
+            'headers' => [
+                'Authorization' => 'App ' . substr(env('INFOBIP_API_KEY'), 0, 10) . '...',
+                'Content-Type' => 'application/json'
+            ],
+            'json_payload' => json_encode($payload, JSON_PRETTY_PRINT)
         ]);
 
-        return Http::withHeaders([
-                'Authorization' => "App {$apiKey}",
-                'Content-Type'  => 'application/json'
-            ])
-            ->timeout(30)
-            ->connectTimeout(5)
-            ->post("{$base}/whatsapp/1/message/template", $payload);
+        // Send request
+        $response = Http::withHeaders([
+            'Authorization' => 'App ' . env('INFOBIP_API_KEY'),
+            'Content-Type' => 'application/json',
+        ])->post(env('INFOBIP_BASE_URL') . '/whatsapp/1/message/template', $payload);
+
+        return $response;
     }
 
     /**
@@ -65,7 +77,8 @@ class InfobipClient
      */
     public function sendTemplateWithParams(string $phone, string $template, array $params = [])
     {
-        $language = $params['language'] ?? 'en';
+        // $language = $params['language'] ?? 'en';
+        $language = 'en';
         $placeholders = [];
 
         // Extract common parameters for WhatsApp templates
@@ -89,5 +102,41 @@ class InfobipClient
         }
 
         return $this->sendTemplateMessage($phone, $template, $placeholders, $language);
+    }
+
+    /**
+     * Send plain text WhatsApp message using Infobip API
+     * 
+     * @param string $to Phone number in international format
+     * @param string $message Plain text message content
+     * @return \Illuminate\Http\Client\Response
+     */
+    public function sendTextMessage(string $to, string $message)
+    {
+        $apiKey = env('INFOBIP_API_KEY');
+        $base = rtrim(env('INFOBIP_BASE_URL'), '/');
+
+        $payload = [
+            'from' => env('WABA_SENDER'),
+            'to' => $to,
+            'messageId' => uniqid('txt_', true),
+            'content' => [
+                'text' => $message
+            ]
+        ];
+
+        Log::channel('fms')->debug('Sending WhatsApp text message', [
+            'to' => $to,
+            'message' => $message,
+            'payload' => $payload
+        ]);
+
+        return Http::withHeaders([
+            'Authorization' => "App {$apiKey}",
+            'Content-Type' => 'application/json'
+        ])
+            ->timeout(30)
+            ->connectTimeout(5)
+            ->post("{$base}/whatsapp/1/message/text", $payload);
     }
 }

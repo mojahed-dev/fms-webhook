@@ -19,4 +19,6 @@ return [
     'Ignition On'        => ['template' => 'ignition_on_alert_en', 'priority' => 'normal'],
     'Ignition Off'       => ['template' => 'ignition_off_alert_en','priority' => 'normal'],
     'ignition_alert'     => ['template' => 'ignition_on_alert_en', 'priority' => 'normal'],
-];
+    // Add this for testing your Infobip template
+   'test_infobip_hsm' => ['template' => 'infobip_test_hsm_2', 'priority' => 'high'],
+    ];

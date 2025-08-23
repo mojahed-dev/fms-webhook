@@ -37,12 +37,33 @@ class FmsAlertController extends Controller
 
         $payload = $req->all();
         
-        // Extract alert_type, message, and phone_number from payload
-        $type = $payload['alert_type'] ?? $payload['type'] ?? 'Unknown';
+        // Extract required fields with validation
+        $alertId = $payload['alert_id'] ?? $payload['event_id'] ?? null;
+        $type = $payload['alert_type'] ?? $payload['type'] ?? null;
+        $occurredAt = $payload['occurred_at'] ?? $payload['timestamp'] ?? $payload['time'] ?? null;
+        
+        // Extract vehicle_id from multiple possible paths including device hierarchy
+        $vehicleId = $payload['vehicle_id'] 
+                  ?? data_get($payload, 'body.vehicle.id')
+                  ?? data_get($payload, 'device.device_id')
+                  ?? data_get($payload, 'device.name')
+                  ?? data_get($payload, 'device.plate_number')
+                  ?? null;
+        
+        // Validate required fields before proceeding
+        if (!$alertId || !$vehicleId || !$occurredAt) {
+            Log::channel('fms')->warning('Skipping alert: required fields missing', [
+                'alert_id' => $alertId,
+                'vehicle_id' => $vehicleId,
+                'occurred_at' => $occurredAt,
+                'payload' => $payload
+            ]);
+            return response()->json(['skipped' => true, 'reason' => 'required fields missing'], 200);
+        }
+        
+        // Extract additional fields
         $message = $payload['message'] ?? $payload['description'] ?? '';
-        $vehicleId = $payload['vehicle_id'] ?? data_get($payload, 'body.vehicle.id') ?? 'NA';
         $customerId = $payload['customer_id'] ?? data_get($payload, 'body.customer.id') ?? null;
-        $occurredAt = $payload['occurred_at'] ?? $payload['timestamp'] ?? now()->toISOString();
         
         // Extract phone number from multiple possible locations
         $msisdn = $payload['phone_number'] 
@@ -57,6 +78,7 @@ class FmsAlertController extends Controller
 
         $map = config('alerts');
         $template = null;
+        $useTextFallback = false;
         
         // Try original type first, then normalized type
         if (isset($map[$type])) {
@@ -64,11 +86,15 @@ class FmsAlertController extends Controller
         } elseif (isset($map[$normalizedType])) {
             $template = $map[$normalizedType]['template'];
         } else {
-            Log::warning('No template mapped for alert type', [
+            // No template found - use plain text fallback
+            $useTextFallback = true;
+            $template = 'plain_text_fallback'; // Placeholder template name for logging
+            
+            Log::channel('fms')->info('No template mapped for alert type, using plain text fallback', [
                 'original_type' => $type,
-                'normalized_type' => $normalizedType
+                'normalized_type' => $normalizedType,
+                'vehicle_id' => $vehicleId
             ]);
-            return response()->json(['skipped' => true], 200);
         }
 
         $idempotency = hash('sha256', "{$vehicleId}|{$type}|{$occurredAt}");
@@ -83,7 +109,7 @@ class FmsAlertController extends Controller
             $alert = Alert::firstOrCreate(
                 ['idempotency_key' => $idempotency],
                 [
-                    'event_id'    => $payload['event_id'] ?? null,
+                    'event_id'    => $alertId,
                     'vehicle_id'  => $vehicleId,
                     'customer_id' => $customerId,
                     'alert_type'  => $type,
@@ -95,6 +121,13 @@ class FmsAlertController extends Controller
             if (!$alert->wasRecentlyCreated) {
                 return response()->json(['duplicate' => true], 200);
             }
+
+            // Log successful alert save
+            Log::channel('fms')->info('Saved alert', [
+                'event_id' => $alertId,
+                'vehicle_id' => $vehicleId,
+                'type' => $type
+            ]);
 
             // Determine language based on template (English for new templates)
             $language = str_ends_with($template, '_en') ? 'en' : env('DEFAULT_LANGUAGE', 'ar');
@@ -119,7 +152,7 @@ class FmsAlertController extends Controller
                 'address' => data_get($payload, 'address', ''),
             ];
 
-            SendWhatsappAlert::dispatch($messageRecord, $placeholders, $type)->onQueue('default');
+            SendWhatsappAlert::dispatch($messageRecord, $placeholders, $type, $useTextFallback)->onQueue('default');
 
             return response()->json(['queued' => true, 'alert_id' => $alert->id], 202);
             
@@ -180,6 +213,28 @@ class FmsAlertController extends Controller
                 'location' => ['lat' => '24.7744', 'lng' => '46.7383'],
                 'occurred_at' => now()->toISOString(),
                 'customer_id' => 'CUST-003'
+            ],
+            // Test plain text fallback with unmapped alert types
+            'test_unmapped' => [
+                'alert_type' => 'test_unmapped_alert',
+                'message' => 'This is a test alert with no template mapping',
+                'vehicle_id' => 'TEST-001',
+                'phone_number' => $phone,
+                'speed' => '120',
+                'address' => 'King Fahd Road, Riyadh',
+                'location' => ['lat' => '24.7136', 'lng' => '46.6753'],
+                'occurred_at' => now()->toISOString(),
+                'customer_id' => 'CUST-001'
+            ],
+            'maintenance_due' => [
+                'alert_type' => 'maintenance_due',
+                'message' => 'Vehicle maintenance is due',
+                'vehicle_id' => 'TEST-004',
+                'phone_number' => $phone,
+                'address' => 'Al Malaz, Riyadh',
+                'location' => ['lat' => '24.6408', 'lng' => '46.7728'],
+                'occurred_at' => now()->toISOString(),
+                'customer_id' => 'CUST-004'
             ]
         ];
 

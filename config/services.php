@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'infobip' => [
+        'base_url'    => env('INFOBIP_BASE_URL', 'https://qd8wgw.api.infobip.com'),
+        'api_key'     => env('INFOBIP_API_KEY'),
+        'waba_sender' => env('WABA_SENDER'),    // e.g. +447860088970 (we strip + in client)
+    ],
+
+
 ];
